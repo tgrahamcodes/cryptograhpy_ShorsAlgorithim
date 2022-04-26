@@ -1,101 +1,160 @@
-#/opt/homebrew/bin/python3
-# Tom Graham
-# Advanced Crypto
-# Project 3
-import math
-import matplotlib.pyplot as p
 import numpy as np
+from fractions import Fraction
+import random
+import math
+import cmath
 
-# Plot the amplitude of the different states
-# of the Quantum Registers after each major step of Shor's
-def plot():
-	# TODO
-	print ("Plotting")
-	frequency = 100
-	interval = 1/frequency
-	start_time = 0
-	end_time = 10
-	time = np.arange(start_time, end_time, interval)
+# Get random x for GCD(x, N) = 1
+def get_x(Z):
+	y = random.randint(2, Z-1)
+	while math.gcd(y,Z) != 1:
+		y = random.randint(2, Z-1)
+	return y
 
-	amplitude_one = np.sin(2*np.pi*frequency*time)
-	amplitude_two = np.sin(2*np.pi*frequency*time)
+def quantum(x, N, t2):
+	xmodn = []
+	xmodn.append(1)
+	temp = 1
+	while True:
+		temp = (temp*x) % N
+		if temp == 1:
+			break
+		xmodn.append(temp)
+	measure=random.randint(0, len(xmodn) - 1)
+	collapse = range(measure, t2, len(xmodn))
+	result = np.zeros((t2,1))
+	for i in collapse:
+		result[i] = 1
+	return result
 
-	figure, axis = p.subplots(4, 1)
-	p.subplots_adjust(hspace=1)
+"Measures a value from a normalized probability distribution"
+def nonuniform_measure(prob):
+	r = random.random()
+	for i in range(len(prob)):
+		r = r - prob[i]
+		if r  <= 0:
+			return i
+	return
 
-	axis[0].set_title('Sine wave with a frequency of 4 Hz')
-	axis[0].plot(time, amplitude_one)
-	axis[0].set_xlabel('Time')
-	axis[0].set_ylabel('Amplitude')
+"CALCULATE CONTINUED FRACTIONS"
+"Returns the list of all convergents of the fraction x/y"
+def list_convergents(x,y):
+	z = find_continued_fraction(x,y)
+	K = []
+	m = len(z)
+	while m!= 0:
+		K = K + [do_frac(z,m)]
+		m = m - 1
+	return K
 
-	axis[1].set_title('Sine wave with a frequency of 7 Hz')
-	axis[1].plot(time, amplitude_two)
-	axis[1].set_xlabel('Time')
-	axis[1].set_ylabel('Amplitude')
+"Returns the list of values in the continued fraction of x/y"
+def find_continued_fraction(x,y,Z=[]):
+	q=y//x
+	Z = Z + [q]
+	if y-q*x!=1 and y-q*x!=0:
+		return find_continued_fraction(y-q*x,x,Z)
+	else:
+		Z+=[x]
+		return Z
 
-	amplitude = amplitude_one + amplitude_two
+"Returns the fraction associated with a set Y of values in a continued fraction, using the first n values of Y or all values if n>len(Y)"
+def do_frac(Y,n):
+	Y=Y[0:n]
+	if len(Y)==1:
+		return Fraction(1,Y[0])
+	else:
+		return Fraction(1,Y[0]+do_frac(Y[1:],n))
 
-	axis[2].set_title('Sine wave with multiple frequencies')
-	axis[2].plot(time, amplitude)
-	axis[2].set_xlabel('Time')
-	axis[2].set_ylabel('Amplitude')
+# Fournier
+def do_fourier(states):    
+	N = len(states)
+	if N == 1 :
+		return states
+	else :
+		W = 1
+		phi = (2 * math.pi ) / N
+		Wn = complex(math.cos(phi), math.sin(phi))
+		Aeven = states[0::2]
+		Aodd = states[1::2]
+		Yeven = do_fourier(Aeven)
+		Yodd = do_fourier(Aodd)
+		Y = np.empty((N,1),dtype=complex)
+		for j in range(0, N//2):
+			Y[j] = Yeven[j] + W * Yodd[j]
+			Y[j + N//2] = Yeven[j] - W * Yodd[j]
+			W = W * Wn
+	return Y
 
-	fourierTransform = np.fft.fft(amplitude)/len(amplitude)           
-	fourierTransform = fourierTransform[range(int(len(amplitude)/2))] 
+# Compute probability of pdf
+def allprobs(dftvals, t2):
+	probs = np.empty((t2,1))
+	total_prob = 0
+	for i in range(0, t2):
+		probs[i] = math.pow(abs(dftvals[i]), 2)
+		total_prob = total_prob + probs[i]
+	return probs/total_prob
 
-	tpCount     = len(amplitude)
-	values      = np.arange(int(tpCount/2))
-	timePeriod  = tpCount/frequency
-	frequencies = values/timePeriod
+# The main function used to run Peter Shor's algorithm.
+# This will call the other functions in the proper order.
+def Shor(N):
+	n = math.ceil(math.log(N, 2))
+	t = math.ceil(2*math.log(N, 2))
+	t2 = 2**t
+	attempts = 0
+	print("\nQBits:", n+t, "\n")
+	done = False
 
-	axis[3].set_title('Fourier transform depicting the frequency components')
-	axis[3].plot(frequencies, abs(fourierTransform))
-	axis[3].set_xlabel('Frequency')
-	axis[3].set_ylabel('Amplitude')
+	while not done:
+		attempts = attempts + 1
+		print("Attempt:", attempts)
+		x = get_x(N)
+		print("x:", x)
 
-	p.show()
+		states = quantum(x, N, t2)
+		temp_fourier = do_fourier(states)
+		pdf = allprobs(temp_fourier, t2)
+		measured = nonuniform_measure(pdf)
 
-# Classical part which reduces the factorisation to a problem of finding the period of the function. This is done classically using a normal computer.
-def shors_step_one():
-	print("Shors step one function")
-	# return period
+		while measured == 0:
+			measured = nonuniform_measure(pdf)
+		
+		print("Measured:", measured)
+		fracs = list_convergents(measured, t2)
+		r = 0
+		for f in fracs:
+			if f.denominator < N:
+				r = f.denominator
+				break
+		print()
+		if r % 2 == 1 and 2 * r < N:
+			r = 2 * r
 
-# Quantum part which uses a quantum computer to find the period using the Quantum Fourier Transform.
-def shors_step_two():
-	print("Shors step two function")
-	# return period
+		factor =- 1
+		if (math.pow(x,r)) % N != N - 1:
+			if r % 2 == 0:
+				a = math.gcd(x**(r//2) + 1, N)
+				b = math.gcd(x**(r//2) + n-1, N)
+				factor = max(a, b)				
+			if factor == 1 or factor == N:
+				print("Got", factor, "rerunning...\n")			
+			elif factor != -1:
+				factor2 = N // factor
+				do_test(factor, factor2, N, r)
+				done = True
+		
+def do_test(factor, factor2, N, r):
+	if (factor*factor2 == N):
+		print ('-'*15)
+		print ('Results')
+		print ('-'*15)
+		print ('r:', r)
+		print ('N:', N)
+		print ('Factor:', factor)
+		print ('Factor Two:', factor2)
+		print ('Test passed!')
+	else:
+		print('Test failed.')
+	print ('-'*15)
 
-# Simulate the index finding algorithm in Shor’s quantum factorization algorithm 
 if __name__ == "__main__":
-	# random number such that A < N
-	A = 6
-
-	QBits = 6 
-	# iterate 2^12 times
-	# should see period, 2^6 = 64 / 8 = 8 times
-
-	# Part one of HW
-	n = 15
-
-	# p * q = p is 3, q is 5
-	period = 8
-
-	# 143 = 11 * 13 = 10 * 12 = 120 bits = 2^7 (128)
-	# 12 or 13 qbits
-	
-	# f(x) = a^(x mod n)
-	# peroidic, discrete problem in finite set
-
-	# Part two of HW
-	n2 = 143
-	
-	gcd = math.gcd(n)
-	# plot()
-
-	# Computer the gcd of N
-	# run quatum circuit using a Quantum Fourier Transform
-	if (gcd != 1): 
-	 	print ("Found factor of N", gcd)
-	#	else:
-	#		if (period % 2):
-	#	 		return shors_step_one()
+	Shor(143)
