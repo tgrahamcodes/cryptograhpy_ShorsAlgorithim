@@ -105,10 +105,16 @@ def do_quantum(x, N, t2):
 # The main function used to run Peter Shor's algorithm.
 # This will call the other functions in the proper order.
 def do_shors(N):
+	# Save array for the plotting stage
 	measured_array = list()
+
+	# Choose n and t
 	n = math.ceil(math.log(N, 2))
 	t = math.ceil(2 * math.log(N, 2))
+
 	t2 = 2**t
+
+	# Record number of attempts
 	attempts = 0
 	print("\nQBits:", n+t, "\n")
 	done = False
@@ -126,14 +132,17 @@ def do_shors(N):
 		
 		print("Measured:", measured)
 		measured_array.append(measured)
-		
 		fracs = get_convergents(measured, t2)
+		
+		# Start r at 0
 		r = 0
-		for f in fracs:
-			if f.denominator < N:
-				r = f.denominator
+		
+		for i in fracs:
+			if i.denominator < N:
+				r = i.denominator
 				break
 		print()
+		
 		if r % 2 == 1 and 2 * r < N:
 			r = 2 * r
 
@@ -141,8 +150,8 @@ def do_shors(N):
 		if (math.pow(x,r)) % N != N - 1:
 			if r % 2 == 0:
 				a = math.gcd(x**(r//2) + 1, N)
-				b = math.gcd(x**(r//2) + n-1, N)
-				factor = max(a, b)				
+				b = math.gcd(x**(r//2) + n - 1, N)
+				factor = max(a, b)		
 			if factor == 1 or factor == N:
 				print("Got", factor, "rerunning...")			
 			elif factor != -1:
