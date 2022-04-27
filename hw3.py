@@ -1,8 +1,8 @@
 import numpy as np
 from fractions import Fraction
 import random
+import matplotlib.pyplot as plt
 import math
-import cmath
 
 # Get random x for GCD(x, N) = 1
 def get_x(Z):
@@ -11,35 +11,9 @@ def get_x(Z):
 		y = random.randint(2, Z-1)
 	return y
 
-def quantum(x, N, t2):
-	xmodn = []
-	xmodn.append(1)
-	temp = 1
-	while True:
-		temp = (temp*x) % N
-		if temp == 1:
-			break
-		xmodn.append(temp)
-	measure=random.randint(0, len(xmodn) - 1)
-	collapse = range(measure, t2, len(xmodn))
-	result = np.zeros((t2,1))
-	for i in collapse:
-		result[i] = 1
-	return result
-
-"Measures a value from a normalized probability distribution"
-def nonuniform_measure(prob):
-	r = random.random()
-	for i in range(len(prob)):
-		r = r - prob[i]
-		if r  <= 0:
-			return i
-	return
-
-"CALCULATE CONTINUED FRACTIONS"
-"Returns the list of all convergents of the fraction x/y"
-def list_convergents(x,y):
-	z = find_continued_fraction(x,y)
+# Get list of convergents
+def get_convergents(x, y):
+	z = get_frac(x,y)
 	K = []
 	m = len(z)
 	while m!= 0:
@@ -47,23 +21,32 @@ def list_convergents(x,y):
 		m = m - 1
 	return K
 
-"Returns the list of values in the continued fraction of x/y"
-def find_continued_fraction(x,y,Z=[]):
-	q=y//x
+# Get a list of values for the fraction
+def get_frac(x, y, Z=[]):
+	q = y//x
 	Z = Z + [q]
-	if y-q*x!=1 and y-q*x!=0:
-		return find_continued_fraction(y-q*x,x,Z)
+	if y-q * x != 1 and y-q * x != 0:
+		return get_frac(y-q*x, x, Z)
 	else:
-		Z+=[x]
+		Z = Z + [x]
 		return Z
 
 "Returns the fraction associated with a set Y of values in a continued fraction, using the first n values of Y or all values if n>len(Y)"
-def do_frac(Y,n):
-	Y=Y[0:n]
-	if len(Y)==1:
-		return Fraction(1,Y[0])
+def do_frac(Y, n):
+	Y = Y[0:n]
+	if len(Y) == 1:
+		return Fraction(1, Y[0])
 	else:
-		return Fraction(1,Y[0]+do_frac(Y[1:],n))
+		return Fraction(1, Y[0] + do_frac(Y[1:],n))
+
+# Get measurement from probability
+def do_measure(prob):
+	r = random.random()
+	for i in range(len(prob)):
+		r = r - prob[i]
+		if r  <= 0:
+			return i
+	return
 
 # Fournier
 def do_fourier(states):    
@@ -74,19 +57,19 @@ def do_fourier(states):
 		W = 1
 		phi = (2 * math.pi ) / N
 		Wn = complex(math.cos(phi), math.sin(phi))
-		Aeven = states[0::2]
-		Aodd = states[1::2]
-		Yeven = do_fourier(Aeven)
-		Yodd = do_fourier(Aodd)
-		Y = np.empty((N,1),dtype=complex)
+		a = states[0::2]
+		b = states[1::2]
+		y = do_fourier(a)
+		x = do_fourier(b)
+		Y = np.empty((N,1), dtype=complex)
 		for j in range(0, N//2):
-			Y[j] = Yeven[j] + W * Yodd[j]
-			Y[j + N//2] = Yeven[j] - W * Yodd[j]
+			Y[j] = y[j] + W * x[j]
+			Y[j + N//2] = y[j] - W * x[j]
 			W = W * Wn
 	return Y
 
 # Compute probability of pdf
-def allprobs(dftvals, t2):
+def get_prob(dftvals, t2):
 	probs = np.empty((t2,1))
 	total_prob = 0
 	for i in range(0, t2):
@@ -94,11 +77,29 @@ def allprobs(dftvals, t2):
 		total_prob = total_prob + probs[i]
 	return probs/total_prob
 
+# Quantum steps
+def do_quantum(x, N, t2):
+	x_list = list()
+	temp = 1
+	x_list.append(temp)
+	
+	while True:
+		temp = (temp * x) % N
+		if temp == 1:
+			break
+		x_list.append(temp)
+	measure=random.randint(0, len(x_list) - 1)
+	collapse = range(measure, t2, len(x_list))
+	result = np.zeros((t2,1))
+	for i in collapse:
+		result[i] = 1
+	return result
+
 # The main function used to run Peter Shor's algorithm.
 # This will call the other functions in the proper order.
-def Shor(N):
+def do_shors(N):
 	n = math.ceil(math.log(N, 2))
-	t = math.ceil(2*math.log(N, 2))
+	t = math.ceil(2 * math.log(N, 2))
 	t2 = 2**t
 	attempts = 0
 	print("\nQBits:", n+t, "\n")
@@ -110,16 +111,16 @@ def Shor(N):
 		x = get_x(N)
 		print("x:", x)
 
-		states = quantum(x, N, t2)
+		states = do_quantum(x, N, t2)
 		temp_fourier = do_fourier(states)
-		pdf = allprobs(temp_fourier, t2)
-		measured = nonuniform_measure(pdf)
+		pdf = get_prob(temp_fourier, t2)
+		measured = do_measure(pdf)
 
 		while measured == 0:
-			measured = nonuniform_measure(pdf)
+			measured = do_measure(pdf)
 		
 		print("Measured:", measured)
-		fracs = list_convergents(measured, t2)
+		fracs = get_convergents(measured, t2)
 		r = 0
 		for f in fracs:
 			if f.denominator < N:
@@ -157,4 +158,5 @@ def do_test(factor, factor2, N, r):
 	print ('-'*15)
 
 if __name__ == "__main__":
-	Shor(143)
+	do_shors(143)
+	#plt.plot()
