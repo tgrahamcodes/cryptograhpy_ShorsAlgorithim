@@ -5,7 +5,10 @@ import matplotlib.pyplot as plt
 import math
 
 # This will plot the amplitude of the function
-def do_plot(measured_array):
+def do_plot(measured_array, attempts):
+	if (attempts == 1):
+		print ('\nDone in one attempt, skipping graphing...\n')
+		return
 	plt.plot(measured_array)
 	plt.title('Amplitude')
 	plt.xlabel('')
@@ -63,11 +66,14 @@ def do_fourier(states):
 		W = 1
 		p = (2 * math.pi) / N
 		w = complex(math.cos(p), math.sin(p))
-		a = states[0::2]
+		a = states[0::2] 
 		b = states[1::2]
+
 		y = do_fourier(a)
 		x = do_fourier(b)
+
 		Y = np.empty((N,1), dtype=complex)
+		
 		for j in range(0, N//2):
 			Y[j] = y[j] + W * x[j]
 			Y[j + N//2] = y[j] - W * x[j]
@@ -95,7 +101,7 @@ def do_quantum(x, N, t2):
 		if temp == 1:
 			break
 		x_list.append(temp)
-	measure=random.randint(0, len(x_list) - 1)
+	measure = random.randint(0, len(x_list) - 1)
 	collapse = range(measure, t2, len(x_list))
 	result = np.zeros((t2,1))
 	for i in collapse:
@@ -130,7 +136,6 @@ def do_shors(N):
 		while measured == 0:
 			measured = do_measure(p)
 		
-		print("Measured:", measured)
 		measured_array.append(measured)
 		fracs = get_convergents(measured, t2)
 		
@@ -171,7 +176,8 @@ def do_test(factor, factor2, N, r, attempts, measured_array):
 		print ('Factor:', factor)
 		print ('Factor Two:', factor2)
 		print ('Test passed!')
-		do_plot(measured_array)
+		print ("Mesurements:", measured_array)
+		do_plot(measured_array, attempts)
 	else:
 		print('Test failed.')
 	print ('-'*15)
@@ -180,3 +186,5 @@ def do_test(factor, factor2, N, r, attempts, measured_array):
 if __name__ == "__main__":
 	do_shors(15)
 	do_shors(143)
+
+
